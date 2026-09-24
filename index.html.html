@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blend Theory Referral</title>
+<style>
+:root{--bg:#0b0b0c;--card:#171719;--text:#f7f7f5;--muted:#aaa;--line:#303034;--accent:#fff}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+.wrap{max-width:520px;margin:auto;padding:34px 18px 50px}.brand{font-weight:900;letter-spacing:.18em;font-size:14px;text-align:center;margin-bottom:32px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:26px 20px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+.eyebrow{font-size:12px;letter-spacing:.16em;color:var(--muted);font-weight:700}.hero{font-size:38px;line-height:1.02;margin:10px 0 12px;font-weight:900;letter-spacing:-.04em}
+p{color:#c7c7ca;line-height:1.5}.ref{padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin:18px 0;color:#ddd;font-size:14px}
+label{display:block;font-size:13px;font-weight:700;margin:16px 0 7px}input{width:100%;padding:15px 14px;background:#0e0e10;color:white;border:1px solid #38383d;border-radius:12px;font-size:16px;outline:none}
+input:focus{border-color:#888}button{width:100%;margin-top:22px;border:0;border-radius:14px;padding:16px;font-size:16px;font-weight:900;cursor:pointer;background:var(--accent);color:#090909}
+button:disabled{opacity:.55;cursor:wait}.fine{font-size:11px;color:#7f7f84;margin-top:15px;text-align:center}.status{font-size:13px;min-height:20px;margin-top:12px;color:#cfcfd3;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">BLEND THEORY</div>
+  <main class="card">
+    <div class="eyebrow">CLIENT REFERRAL</div>
+    <div class="hero">You’ve been put on.</div>
+    <p>A Blend Theory client sent you here. Claim the referral and book your cut.</p>
+    <div class="ref">Referral code: <strong id="refLabel">—</strong></div>
+    <form id="claimForm">
+      <label for="name">Your name</label><input id="name" name="name" autocomplete="name" required>
+      <label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" inputmode="tel">
+      <label for="email">Email</label><input id="email" name="email" autocomplete="email" inputmode="email">
+      <button id="submitBtn" type="submit">CLAIM &amp; BOOK</button>
+      <div class="status" id="status"></div>
+    </form>
+    <div class="fine">Referral credit is awarded after the referred client completes and pays for a qualifying appointment.</div>
+  </main>
+</div>
+<script>
+// STEP 1: After deploying the Apps Script, paste its /exec URL between the quotes below.
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyn5c8NkrXzM3ndF15A5AmAC4yOV6Cu9PePgDIoKqOSYelsJvG6J0dvDXsSiPtQcIgWLQ/exec';
+const BOOKING_URL = 'https://blend-theory-103153.square.site/';
+const params = new URLSearchParams(location.search);
+const referralCode = (params.get('ref') || params.get('utm_content') || '').trim().toUpperCase();
+document.getElementById('refLabel').textContent = referralCode || 'Missing code';
+
+const form = document.getElementById('claimForm');
+const btn = document.getElementById('submitBtn');
+const status = document.getElementById('status');
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!referralCode) { status.textContent = 'This referral link is missing a referral code.'; return; }
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const email = document.getElementById('email').value.trim();
+  if (!phone && !email) { status.textContent = 'Please enter a phone number or email.'; return; }
+  if (!WEB_APP_URL.startsWith('https://script.google.com/')) { status.textContent = 'This page still needs its Google Apps Script Web App URL.'; return; }
+  btn.disabled = true; btn.textContent = 'SAVING REFERRAL…'; status.textContent = '';
+  try {
+    // text/plain avoids a browser CORS preflight while Apps Script still receives JSON in postData.contents.
+    await fetch(WEB_APP_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({referralCode,name,phone,email})});
+    status.textContent = 'Referral saved. Opening booking…';
+    setTimeout(() => { location.href = BOOKING_URL + '?utm_source=referral&utm_medium=client&utm_campaign=refer2free&utm_content=' + encodeURIComponent(referralCode); }, 650);
+  } catch (error) {
+    status.textContent = 'Could not save the referral. Please try again.';
+    btn.disabled = false; btn.textContent = 'CLAIM & BOOK';
+  }
+});
+</script>
+</body>
+</html>
