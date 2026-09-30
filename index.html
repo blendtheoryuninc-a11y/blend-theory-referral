@@ -39,7 +39,7 @@ body {
   font-weight: 900;
   letter-spacing: .18em;
   font-size: 14px;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .card {
@@ -49,6 +49,7 @@ body {
   padding: 26px 20px;
   box-shadow:
     0 18px 50px rgba(0,0,0,.25);
+  margin-bottom: 18px;
 }
 
 .eyebrow {
@@ -65,6 +66,10 @@ body {
   margin: 10px 0 12px;
 }
 
+.shareHero {
+  font-size: 34px;
+}
+
 p {
   color: #c7c7ca;
   line-height: 1.5;
@@ -75,6 +80,56 @@ p {
   border: 1px solid #38383d;
   border-radius: 12px;
   margin: 18px 0;
+}
+
+.qrWrap {
+  background: white;
+  border-radius: 18px;
+  padding: 14px;
+  width: 230px;
+  max-width: 100%;
+  margin: 22px auto;
+}
+
+.qrWrap img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.shareNote {
+  text-align: center;
+  color: #c7c7ca;
+  line-height: 1.5;
+  margin: 12px 0 20px;
+}
+
+button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 16px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: #f7f7f5;
+  color: #0b0b0c;
+}
+
+.secondaryButton {
+  background: #29292d;
+  color: #f7f7f5;
+  border: 1px solid #3c3c42;
+}
+
+.divider {
+  height: 1px;
+  background: #303034;
+  margin: 28px 0;
 }
 
 label {
@@ -94,17 +149,6 @@ input {
   font-size: 16px;
 }
 
-button {
-  width: 100%;
-  margin-top: 22px;
-  padding: 16px;
-  border: 0;
-  border-radius: 14px;
-  font-size: 16px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
 button:disabled {
   opacity: .55;
 }
@@ -117,11 +161,27 @@ button:disabled {
   color: #cfcfd3;
 }
 
+.shareStatus {
+  text-align: center;
+  font-size: 13px;
+  min-height: 20px;
+  margin-top: 10px;
+  color: #cfcfd3;
+}
+
 .fine {
   font-size: 11px;
   color: #7f7f84;
   margin-top: 15px;
   text-align: center;
+  line-height: 1.45;
+}
+
+.sectionTitle {
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 900;
+  margin: 8px 0 10px;
 }
 
 </style>
@@ -137,6 +197,88 @@ button:disabled {
   BLEND THEORY
 </div>
 
+
+<!-- =========================
+     SHARE REFERRAL CARD
+     ========================= -->
+
+<section class="card">
+
+<div class="eyebrow">
+  REFER 2. GET A FREE CUT.
+</div>
+
+<div class="hero shareHero">
+  Share your referral.
+</div>
+
+<p class="shareNote">
+  Send your Blend Theory referral to a friend.
+  They can use the link or scan the QR code to claim it and book.
+</p>
+
+
+<div class="ref">
+
+  Referral code:
+
+  <strong id="shareRefLabel">
+  </strong>
+
+</div>
+
+
+<div
+  class="qrWrap"
+  id="qrWrap">
+
+  <img
+    id="qrImage"
+    alt="Blend Theory referral QR code">
+
+</div>
+
+
+<button
+  id="shareBtn"
+  class="primaryButton"
+  type="button">
+
+  SHARE REFERRAL
+
+</button>
+
+
+<button
+  id="copyBtn"
+  class="secondaryButton"
+  type="button">
+
+  COPY REFERRAL LINK
+
+</button>
+
+
+<div
+  class="shareStatus"
+  id="shareStatus">
+</div>
+
+
+<div class="fine">
+
+  Referral credit is awarded after your referred client
+  completes and pays for a qualifying appointment.
+
+</div>
+
+</section>
+
+
+
+<!-- =========================
+     CLAIM REFERRAL CARD
+     ========================= -->
 
 <main class="card">
 
@@ -201,6 +343,7 @@ button:disabled {
 
 <button
   id="submitBtn"
+  class="primaryButton"
   type="submit">
 
   CLAIM & BOOK
@@ -237,6 +380,11 @@ button:disabled {
  */
 
 
+/* =========================
+   CONFIGURATION
+   ========================= */
+
+
 /* Apps Script backend */
 
 const WEB_APP_URL =
@@ -249,7 +397,10 @@ const BOOKING_URL =
   'https://blend-theory-103153.square.site/';
 
 
-/* Read referral code from URL */
+/* =========================
+   REFERRAL INFORMATION
+   ========================= */
+
 
 const params =
   new URLSearchParams(
@@ -267,7 +418,25 @@ const REFERRAL_CODE =
   .toUpperCase();
 
 
-/* Page elements */
+/*
+ * Build a clean referral URL.
+ * This removes unrelated tracking parameters
+ * while preserving the client's referral code.
+ */
+
+const REFERRAL_URL =
+  window.location.origin +
+  window.location.pathname +
+  '?ref=' +
+  encodeURIComponent(
+    REFERRAL_CODE
+  );
+
+
+/* =========================
+   PAGE ELEMENTS
+   ========================= */
+
 
 const form =
   document.getElementById(
@@ -293,11 +462,76 @@ const refLabel =
   );
 
 
-/* Display referral code */
+const shareRefLabel =
+  document.getElementById(
+    'shareRefLabel'
+  );
+
+
+const qrImage =
+  document.getElementById(
+    'qrImage'
+  );
+
+
+const qrWrap =
+  document.getElementById(
+    'qrWrap'
+  );
+
+
+const shareBtn =
+  document.getElementById(
+    'shareBtn'
+  );
+
+
+const copyBtn =
+  document.getElementById(
+    'copyBtn'
+  );
+
+
+const shareStatus =
+  document.getElementById(
+    'shareStatus'
+  );
+
+
+/* =========================
+   DISPLAY REFERRAL
+   ========================= */
+
 
 refLabel.textContent =
   REFERRAL_CODE ||
   'Missing code';
+
+
+shareRefLabel.textContent =
+  REFERRAL_CODE ||
+  'Missing code';
+
+
+/*
+ * Generate QR code for this exact
+ * client's referral URL.
+ */
+
+if (REFERRAL_CODE) {
+
+  qrImage.src =
+    'https://quickchart.io/qr?size=400&text=' +
+    encodeURIComponent(
+      REFERRAL_URL
+    );
+
+} else {
+
+  qrWrap.style.display =
+    'none';
+
+}
 
 
 /* Stop invalid links */
@@ -306,6 +540,10 @@ if (!REFERRAL_CODE) {
 
   button.disabled = true;
 
+  shareBtn.disabled = true;
+
+  copyBtn.disabled = true;
+
   statusBox.textContent =
     'This referral link is missing a referral code.';
 
@@ -313,8 +551,205 @@ if (!REFERRAL_CODE) {
 
 
 /* =========================
+   SHARE REFERRAL
+   ========================= */
+
+
+const SHARE_MESSAGE =
+  'Check out Blend Theory for your next cut. ' +
+  'I’m sending you my referral link — use it to claim the referral and book your appointment.';
+
+
+shareBtn.addEventListener(
+  'click',
+  async function() {
+
+    if (!REFERRAL_CODE) {
+      return;
+    }
+
+
+    /*
+     * Native share sheet on supported
+     * phones and browsers.
+     */
+
+    if (navigator.share) {
+
+      try {
+
+        await navigator.share({
+
+          title:
+            'Blend Theory Referral',
+
+          text:
+            SHARE_MESSAGE,
+
+          url:
+            REFERRAL_URL
+
+        });
+
+
+        shareStatus.textContent =
+          'Referral ready to share.';
+
+
+      } catch (error) {
+
+        /*
+         * User cancelling the share sheet
+         * is not an actual system error.
+         */
+
+        if (
+          error &&
+          error.name !== 'AbortError'
+        ) {
+
+          shareStatus.textContent =
+            'Use COPY REFERRAL LINK to share your referral.';
+
+        }
+
+      }
+
+      return;
+
+    }
+
+
+    /*
+     * Desktop/browser fallback.
+     */
+
+    try {
+
+      await navigator.clipboard.writeText(
+        SHARE_MESSAGE +
+        '\n\n' +
+        REFERRAL_URL
+      );
+
+
+      shareStatus.textContent =
+        'Referral message copied. Paste it into a text, email, or message.';
+
+
+    } catch (error) {
+
+      shareStatus.textContent =
+        'Use COPY REFERRAL LINK below.';
+
+    }
+
+  }
+);
+
+
+/* =========================
+   COPY REFERRAL LINK
+   ========================= */
+
+
+copyBtn.addEventListener(
+  'click',
+  async function() {
+
+    if (!REFERRAL_CODE) {
+      return;
+    }
+
+
+    try {
+
+      await navigator.clipboard.writeText(
+        REFERRAL_URL
+      );
+
+
+      copyBtn.textContent =
+        'LINK COPIED ✓';
+
+
+      shareStatus.textContent =
+        'Referral link copied.';
+
+
+      setTimeout(
+        function() {
+
+          copyBtn.textContent =
+            'COPY REFERRAL LINK';
+
+        },
+        2000
+      );
+
+
+    } catch (error) {
+
+      /*
+       * Older-browser fallback.
+       */
+
+      const tempInput =
+        document.createElement(
+          'textarea'
+        );
+
+
+      tempInput.value =
+        REFERRAL_URL;
+
+
+      document.body.appendChild(
+        tempInput
+      );
+
+
+      tempInput.select();
+
+
+      document.execCommand(
+        'copy'
+      );
+
+
+      document.body.removeChild(
+        tempInput
+      );
+
+
+      copyBtn.textContent =
+        'LINK COPIED ✓';
+
+
+      shareStatus.textContent =
+        'Referral link copied.';
+
+
+      setTimeout(
+        function() {
+
+          copyBtn.textContent =
+            'COPY REFERRAL LINK';
+
+        },
+        2000
+      );
+
+    }
+
+  }
+);
+
+
+/* =========================
    FORM SUBMISSION
    ========================= */
+
 
 form.addEventListener(
   'submit',
@@ -379,10 +814,9 @@ form.addEventListener(
     /*
      * Send referral to Apps Script.
      *
-     * no-cors prevents the customer's
-     * browser from blocking the request
-     * because GitHub and Google are
-     * different domains.
+     * Keep the existing no-cors approach
+     * because the front end is on GitHub
+     * and the backend is on Google.
      */
 
     try {
@@ -422,14 +856,6 @@ form.addEventListener(
       );
 
 
-      /*
-       * With no-cors the browser intentionally
-       * cannot read Google's response.
-       *
-       * If the network request was sent,
-       * continue to Square.
-       */
-
       statusBox.textContent =
         'Referral claimed! Taking you to booking...';
 
@@ -457,7 +883,7 @@ form.addEventListener(
 
       /*
        * Give the POST request a moment
-       * before navigating away.
+       * before navigating to Square.
        */
 
       setTimeout(
