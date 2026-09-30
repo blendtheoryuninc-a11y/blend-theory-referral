@@ -1,346 +1,974 @@
-<!doctype html>
-<html lang="en">
+/**
+ * BLEND THEORY REFERRAL SYSTEM
+ * Refer 2 completed clients = 1 free standard haircut
+ */
+
+const SPREADSHEET_ID = '10mPAkNid8xGFZMPnT13d6vXAB6a1i7XcGG1G1qKzkec';
+const CLIENTS_SHEET = 'Clients';
+const REFERRALS_SHEET = 'Referrals';
+const BOOKING_URL = 'https://blend-theory-103153.square.site/';
+
+
+/* =========================
+   DISPLAY REFERRAL PAGE
+   ========================= */
+
+function doGet(e) {
+
+  const referralCode = String(
+    (e && e.parameter && (e.parameter.ref || e.parameter.code)) || ''
+  ).trim().toUpperCase();
+
+  const template =
+    HtmlService.createTemplate(getReferralPage_());
+
+  template.referralCode = referralCode;
+
+  return template.evaluate()
+    .setTitle('Blend Theory Referral')
+    .setXFrameOptionsMode(
+      HtmlService.XFrameOptionsMode.ALLOWALL
+    );
+}
+
+
+/* =========================
+   RECEIVE GITHUB SUBMISSION
+   ========================= */
+
+function doPost(e) {
+
+  try {
+
+    let data = {};
+
+    /*
+     * GitHub sends JSON as text/plain.
+     * Parse that JSON here.
+     */
+
+    if (
+      e &&
+      e.postData &&
+      e.postData.contents
+    ) {
+
+      try {
+
+        data =
+          JSON.parse(e.postData.contents);
+
+      } catch (parseError) {
+
+        data =
+          e.parameter || {};
+
+      }
+
+    } else {
+
+      data =
+        e.parameter || {};
+
+    }
+
+
+    const result =
+      submitReferral(data);
+
+
+    return ContentService
+      .createTextOutput(
+        JSON.stringify(result)
+      )
+      .setMimeType(
+        ContentService.MimeType.JSON
+      );
+
+
+  } catch (error) {
+
+    return ContentService
+      .createTextOutput(
+        JSON.stringify({
+          ok: false,
+          message:
+            error && error.message
+              ? error.message
+              : 'Referral error.'
+        })
+      )
+      .setMimeType(
+        ContentService.MimeType.JSON
+      );
+
+  }
+}
+
+
+/* =========================
+   PROCESS REFERRAL
+   ========================= */
+
+function submitReferral(data) {
+
+  try {
+
+    data = data || {};
+
+
+    const referralCode =
+      String(data.referralCode || '')
+        .trim()
+        .toUpperCase();
+
+
+    const clientName =
+      String(data.name || '').trim();
+
+    const phone =
+      String(data.phone || '').trim();
+
+    const email =
+      String(data.email || '').trim();
+
+
+    /* Validate submission */
+
+    if (!referralCode) {
+
+      throw new Error(
+        'Missing referral code.'
+      );
+
+    }
+
+
+    if (!clientName) {
+
+      throw new Error(
+        'Please enter your name.'
+      );
+
+    }
+
+
+    if (!phone && !email) {
+
+      throw new Error(
+        'Please enter a phone number or email.'
+      );
+
+    }
+
+
+    /* Open spreadsheet */
+
+    const ss =
+      SpreadsheetApp.openById(
+        SPREADSHEET_ID
+      );
+
+
+    const clients =
+      ss.getSheetByName(
+        CLIENTS_SHEET
+      );
+
+
+    const referrals =
+      ss.getSheetByName(
+        REFERRALS_SHEET
+      );
+
+
+    if (!clients || !referrals) {
+
+      throw new Error(
+        'Required spreadsheet tab was not found.'
+      );
+
+    }
+
+
+    /* =========================
+       FIND REFERRING CLIENT
+       ========================= */
+
+    const clientLastRow =
+      Math.max(
+        clients.getLastRow(),
+        2
+      );
+
+
+    const clientData =
+      clients
+        .getRange(
+          2,
+          1,
+          clientLastRow - 1,
+          4
+        )
+        .getDisplayValues();
+
+
+    let referrerName = '';
+
+
+    for (
+      let i = 0;
+      i < clientData.length;
+      i++
+    ) {
+
+      const code =
+        String(
+          clientData[i][3] || ''
+        )
+          .trim()
+          .toUpperCase();
+
+
+      if (code === referralCode) {
+
+        referrerName =
+          clientData[i][1];
+
+        break;
+
+      }
+
+    }
+
+
+    if (!referrerName) {
+
+      throw new Error(
+        'Referral code not recognized.'
+      );
+
+    }
+
+
+    /* =========================
+       CHECK FOR DUPLICATE
+       ========================= */
+
+    const referralLastRow =
+      Math.max(
+        referrals.getLastRow(),
+        2
+      );
+
+
+    const referralRows =
+      referrals
+        .getRange(
+          2,
+          1,
+          referralLastRow - 1,
+          11
+        )
+        .getDisplayValues();
+
+
+    const normalizedPhone =
+      phone.replace(/\D/g, '');
+
+
+    const normalizedEmail =
+      email.toLowerCase();
+
+
+    for (
+      let i = 0;
+      i < referralRows.length;
+      i++
+    ) {
+
+      const existingCode =
+        String(
+          referralRows[i][1] || ''
+        )
+          .trim()
+          .toUpperCase();
+
+
+      const existingContact =
+        String(
+          referralRows[i][4] || ''
+        )
+          .toLowerCase();
+
+
+      if (
+        existingCode !== referralCode
+      ) {
+        continue;
+      }
+
+
+      const samePhone =
+        normalizedPhone &&
+        existingContact
+          .replace(/\D/g, '')
+          .includes(
+            normalizedPhone
+          );
+
+
+      const sameEmail =
+        normalizedEmail &&
+        existingContact.includes(
+          normalizedEmail
+        );
+
+
+      if (
+        samePhone ||
+        sameEmail
+      ) {
+
+        return {
+
+          ok: true,
+
+          duplicate: true,
+
+          message:
+            'This referral has already been recorded.',
+
+          bookingUrl:
+            buildBookingUrl_(
+              referralCode
+            )
+
+        };
+
+      }
+
+    }
+
+
+    /* =========================
+       FIND EMPTY REFERRAL ROW
+       =========================
+
+       Columns A, C and J contain
+       formulas, so we determine
+       whether a row is actually
+       unused by checking B and D.
+    */
+
+    let targetRow = 0;
+
+    const maxRows =
+      referrals.getMaxRows();
+
+
+    for (
+      let row = 2;
+      row <= maxRows;
+      row++
+    ) {
+
+      const code =
+        referrals
+          .getRange(row, 2)
+          .getDisplayValue();
+
+
+      const newClient =
+        referrals
+          .getRange(row, 4)
+          .getDisplayValue();
+
+
+      if (
+        !code &&
+        !newClient
+      ) {
+
+        targetRow = row;
+
+        break;
+
+      }
+
+    }
+
+
+    /*
+     * If every existing row is occupied,
+     * add another row.
+     */
+
+    if (!targetRow) {
+
+      referrals.insertRowAfter(
+        maxRows
+      );
+
+      targetRow =
+        maxRows + 1;
+
+    }
+
+
+    /* =========================
+       RECORD REFERRAL
+       ========================= */
+
+    const now =
+      new Date();
+
+
+    const contact =
+      [phone, email]
+        .filter(Boolean)
+        .join(' | ');
+
+
+    /*
+     * Write only user-entered fields.
+     *
+     * A = formula
+     * B = referral code
+     * C = formula/referrer
+     * D = new client
+     * E = contact
+     * F = date referred
+     * G = booking date
+     * H = status
+     * I = completion date
+     * J = formula/link
+     * K = notes
+     */
+
+    referrals
+      .getRange(targetRow, 2)
+      .setValue(
+        referralCode
+      );
+
+
+    referrals
+      .getRange(targetRow, 4)
+      .setValue(
+        clientName
+      );
+
+
+    referrals
+      .getRange(targetRow, 5)
+      .setValue(
+        contact
+      );
+
+
+    referrals
+      .getRange(targetRow, 6)
+      .setValue(
+        now
+      );
+
+
+    referrals
+      .getRange(targetRow, 8)
+      .setValue(
+        'Invited'
+      );
+
+
+    referrals
+      .getRange(targetRow, 11)
+      .setValue(
+        'Submitted from Blend Theory referral page'
+      );
+
+
+    SpreadsheetApp.flush();
+
+
+    return {
+
+      ok: true,
+
+      duplicate: false,
+
+      message:
+        'Referral recorded.',
+
+      referrerName:
+        referrerName,
+
+      bookingUrl:
+        buildBookingUrl_(
+          referralCode
+        )
+
+    };
+
+
+  } catch (err) {
+
+    return {
+
+      ok: false,
+
+      message:
+        err && err.message
+          ? err.message
+          : 'Unable to save referral.'
+
+    };
+
+  }
+
+}
+
+
+/* =========================
+   SQUARE BOOKING URL
+   ========================= */
+
+function buildBookingUrl_(
+  referralCode
+) {
+
+  return (
+    BOOKING_URL +
+
+    '?utm_source=referral' +
+
+    '&utm_medium=client' +
+
+    '&utm_campaign=refer2free' +
+
+    '&utm_content=' +
+
+    encodeURIComponent(
+      referralCode
+    )
+  );
+
+}
+
+
+/* =========================
+   DIRECT APPS SCRIPT PAGE
+
+   This remains available for
+   troubleshooting, although
+   customers will use GitHub.
+   ========================= */
+
+function getReferralPage_() {
+
+  return `<!doctype html>
+
+<html>
+
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-  <title>Blend Theory Referral</title>
+<meta charset="utf-8">
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+<meta
+name="viewport"
+content="width=device-width,initial-scale=1,viewport-fit=cover">
 
-    body {
-      margin: 0;
-      background: #0b0b0c;
-      color: #f7f7f5;
-      font-family: Arial, Helvetica, sans-serif;
-    }
+<title>
+Blend Theory Referral
+</title>
 
-    .wrap {
-      max-width: 520px;
-      margin: auto;
-      padding: 34px 18px 50px;
-    }
+<style>
 
-    .brand {
-      text-align: center;
-      font-weight: 900;
-      letter-spacing: .18em;
-      font-size: 14px;
-      margin-bottom: 32px;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    .card {
-      background: #171719;
-      border: 1px solid #303034;
-      border-radius: 24px;
-      padding: 26px 20px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.25);
-    }
+body {
+  margin: 0;
+  background: #0b0b0c;
+  color: #f7f7f5;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
 
-    .eyebrow {
-      font-size: 12px;
-      letter-spacing: .16em;
-      color: #aaa;
-      font-weight: 700;
-    }
+.wrap {
+  max-width: 520px;
+  margin: auto;
+  padding:
+    34px 18px 50px;
+}
 
-    .hero {
-      font-size: 38px;
-      line-height: 1.02;
-      font-weight: 900;
-      margin: 10px 0 12px;
-    }
+.brand {
+  text-align: center;
+  font-weight: 900;
+  letter-spacing: .18em;
+  font-size: 14px;
+  margin-bottom: 32px;
+}
 
-    p {
-      color: #c7c7ca;
-      line-height: 1.5;
-    }
+.card {
+  background: #171719;
+  border:
+    1px solid #303034;
+  border-radius: 24px;
+  padding:
+    26px 20px;
+}
 
-    .ref {
-      padding: 12px 14px;
-      border: 1px solid #38383d;
-      border-radius: 12px;
-      margin: 18px 0;
-    }
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: .16em;
+  color: #aaa;
+  font-weight: 700;
+}
 
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 700;
-      margin: 16px 0 7px;
-    }
+.hero {
+  font-size: 38px;
+  line-height: 1.02;
+  font-weight: 900;
+  margin:
+    10px 0 12px;
+}
 
-    input {
-      width: 100%;
-      padding: 15px 14px;
-      border-radius: 12px;
-      border: 1px solid #38383d;
-      background: #0e0e10;
-      color: white;
-      font-size: 16px;
-    }
+p {
+  color: #c7c7ca;
+  line-height: 1.5;
+}
 
-    button {
-      width: 100%;
-      margin-top: 22px;
-      padding: 16px;
-      border: 0;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 900;
-      cursor: pointer;
-    }
+.ref {
+  padding: 12px 14px;
+  border:
+    1px solid #38383d;
+  border-radius: 12px;
+  margin: 18px 0;
+}
 
-    button:disabled {
-      opacity: .55;
-    }
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin:
+    16px 0 7px;
+}
 
-    .status {
-      text-align: center;
-      font-size: 13px;
-      min-height: 20px;
-      margin-top: 12px;
-      color: #cfcfd3;
-    }
+input {
+  width: 100%;
+  padding: 15px 14px;
+  border-radius: 12px;
+  border:
+    1px solid #38383d;
+  background: #0e0e10;
+  color: white;
+  font-size: 16px;
+}
 
-    .fine {
-      font-size: 11px;
-      color: #7f7f84;
-      margin-top: 15px;
-      text-align: center;
-    }
+button {
+  width: 100%;
+  margin-top: 22px;
+  padding: 16px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
 
-    /* Invisible target used for Apps Script submission */
-    #submissionFrame {
-      display: none;
-    }
-  </style>
+button:disabled {
+  opacity: .55;
+}
+
+.status {
+  text-align: center;
+  font-size: 13px;
+  min-height: 20px;
+  margin-top: 12px;
+  color: #cfcfd3;
+}
+
+.fine {
+  font-size: 11px;
+  color: #7f7f84;
+  margin-top: 15px;
+  text-align: center;
+}
+
+</style>
+
 </head>
 
 <body>
 
 <div class="wrap">
 
-  <div class="brand">
-    BLEND THEORY
-  </div>
+<div class="brand">
+BLEND THEORY
+</div>
 
-  <main class="card">
+<main class="card">
 
-    <div class="eyebrow">
-      CLIENT REFERRAL
-    </div>
+<div class="eyebrow">
+CLIENT REFERRAL
+</div>
 
-    <div class="hero">
-      You've been put on.
-    </div>
+<div class="hero">
+You've been put on.
+</div>
 
-    <p>
-      A Blend Theory client sent you here.
-      Claim the referral and book your cut.
-    </p>
+<p>
+A Blend Theory client sent you here.
+Claim the referral and book your cut.
+</p>
 
-    <div class="ref">
-      Referral code:
-      <strong id="refLabel"></strong>
-    </div>
+<div class="ref">
+Referral code:
+<strong id="refLabel"></strong>
+</div>
 
-    <form
-      id="claimForm"
-      method="POST"
-      target="submissionFrame"
-      action="https://script.google.com/macros/s/AKfycby63YcnW6ci_9KK1pVKahc8fEyvCp0s5tz6OWfky_jzWeHMIxW8kh4TdHXE0xqmQ3GmOQ/exec">
+<form id="claimForm">
 
-      <input
-        type="hidden"
-        id="referralCode"
-        name="referralCode">
+<label>
+Your name
+</label>
 
-      <label for="name">
-        Your name
-      </label>
+<input
+id="name"
+autocomplete="name"
+required>
 
-      <input
-        id="name"
-        name="name"
-        autocomplete="name"
-        required>
+<label>
+Phone
+</label>
 
-      <label for="phone">
-        Phone
-      </label>
+<input
+id="phone"
+autocomplete="tel"
+inputmode="tel">
 
-      <input
-        id="phone"
-        name="phone"
-        autocomplete="tel"
-        inputmode="tel">
+<label>
+Email
+</label>
 
-      <label for="email">
-        Email
-      </label>
+<input
+id="email"
+autocomplete="email"
+inputmode="email">
 
-      <input
-        id="email"
-        name="email"
-        autocomplete="email"
-        inputmode="email">
+<button
+id="submitBtn"
+type="submit">
+CLAIM & BOOK
+</button>
 
-      <button
-        id="submitBtn"
-        type="submit">
-        CLAIM & BOOK
-      </button>
+<div
+class="status"
+id="status">
+</div>
 
-      <div
-        class="status"
-        id="status">
-      </div>
+</form>
 
-    </form>
+<div class="fine">
+Referral credit is awarded after the referred client
+completes and pays for a qualifying appointment.
+</div>
 
-    <iframe
-      id="submissionFrame"
-      name="submissionFrame">
-    </iframe>
+</main>
 
-    <div class="fine">
-      Referral credit is awarded after the referred client
-      completes and pays for a qualifying appointment.
-    </div>
-
-  </main>
 </div>
 
 
 <script>
 
-  const params =
-    new URLSearchParams(window.location.search);
-
-  const REFERRAL_CODE =
-    (
-      params.get('ref') ||
-      params.get('code') ||
-      ''
-    )
-    .trim()
-    .toUpperCase();
+const REFERRAL_CODE =
+  <?!= JSON.stringify(referralCode) ?>;
 
 
-  const BOOKING_URL =
-    'https://blend-theory-103153.square.site/';
+document
+  .getElementById('refLabel')
+  .textContent =
+    REFERRAL_CODE ||
+    'Missing code';
 
 
-  const form =
-    document.getElementById('claimForm');
-
-  const button =
-    document.getElementById('submitBtn');
-
-  const statusBox =
-    document.getElementById('status');
-
-  const refLabel =
-    document.getElementById('refLabel');
-
-  const referralInput =
-    document.getElementById('referralCode');
+const form =
+  document.getElementById(
+    'claimForm'
+  );
 
 
-  refLabel.textContent =
-    REFERRAL_CODE || 'Missing code';
+const button =
+  document.getElementById(
+    'submitBtn'
+  );
 
-  referralInput.value =
-    REFERRAL_CODE;
+
+const statusBox =
+  document.getElementById(
+    'status'
+  );
 
 
-  if (!REFERRAL_CODE) {
+if (!REFERRAL_CODE) {
+
+  button.disabled = true;
+
+  statusBox.textContent =
+    'This referral link is missing a referral code.';
+
+}
+
+
+form.addEventListener(
+  'submit',
+  function(event) {
+
+    event.preventDefault();
+
+
+    const name =
+      document
+        .getElementById('name')
+        .value
+        .trim();
+
+
+    const phone =
+      document
+        .getElementById('phone')
+        .value
+        .trim();
+
+
+    const email =
+      document
+        .getElementById('email')
+        .value
+        .trim();
+
+
+    if (!name) {
+
+      statusBox.textContent =
+        'Please enter your name.';
+
+      return;
+
+    }
+
+
+    if (!phone && !email) {
+
+      statusBox.textContent =
+        'Please enter a phone number or email.';
+
+      return;
+
+    }
+
 
     button.disabled = true;
 
-    statusBox.textContent =
-      'This referral link is missing a referral code.';
+    button.textContent =
+      'SAVING REFERRAL...';
+
+
+    google.script.run
+
+      .withSuccessHandler(
+        function(result) {
+
+          if (
+            !result ||
+            !result.ok
+          ) {
+
+            button.disabled =
+              false;
+
+            button.textContent =
+              'CLAIM & BOOK';
+
+            statusBox.textContent =
+              result &&
+              result.message
+                ? result.message
+                : 'Could not save the referral.';
+
+            return;
+
+          }
+
+
+          statusBox.textContent =
+            result.duplicate
+              ? 'Referral already recorded. Taking you to booking...'
+              : 'Referral claimed! Taking you to booking...';
+
+
+          button.textContent =
+            'OPENING BOOKING...';
+
+
+          setTimeout(
+            function() {
+
+              window.top.location.href =
+                result.bookingUrl;
+
+            },
+            900
+          );
+
+        }
+      )
+
+      .withFailureHandler(
+        function(error) {
+
+          button.disabled =
+            false;
+
+          button.textContent =
+            'CLAIM & BOOK';
+
+          statusBox.textContent =
+            error &&
+            error.message
+              ? error.message
+              : 'Could not save the referral.';
+
+        }
+      )
+
+      .submitReferral({
+
+        referralCode:
+          REFERRAL_CODE,
+
+        name:
+          name,
+
+        phone:
+          phone,
+
+        email:
+          email
+
+      });
 
   }
-
-
-  form.addEventListener(
-    'submit',
-    function(event) {
-
-      const name =
-        document.getElementById('name')
-          .value.trim();
-
-      const phone =
-        document.getElementById('phone')
-          .value.trim();
-
-      const email =
-        document.getElementById('email')
-          .value.trim();
-
-
-      if (!name) {
-
-        event.preventDefault();
-
-        statusBox.textContent =
-          'Please enter your name.';
-
-        return;
-      }
-
-
-      if (!phone && !email) {
-
-        event.preventDefault();
-
-        statusBox.textContent =
-          'Please enter a phone number or email.';
-
-        return;
-      }
-
-
-      button.disabled = true;
-
-      button.textContent =
-        'SAVING REFERRAL...';
-
-      statusBox.textContent =
-        'Referral received. Opening booking...';
-
-
-      /*
-       * Allow the hidden form submission enough time
-       * to reach Apps Script before leaving for Square.
-       */
-
-      setTimeout(function() {
-
-        const booking =
-          BOOKING_URL +
-          '?utm_source=referral' +
-          '&utm_medium=client' +
-          '&utm_campaign=refer2free' +
-          '&utm_content=' +
-          encodeURIComponent(REFERRAL_CODE);
-
-        window.location.href =
-          booking;
-
-      }, 1800);
-
-    }
-  );
+);
 
 </script>
 
 </body>
-</html>
+
+</html>`;
+
+}
