@@ -12,6 +12,12 @@
 
 <title>Blend Theory Referral</title>
 
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b0b0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="BlendTheory">
+
 
 <!-- =========================================
      BLEND THEORY — SOCIAL SHARE PREVIEW
@@ -295,6 +301,25 @@ button:disabled {
   line-height: 1.5;
 }
 
+
+/* =========================================
+   PRIVATE MANAGER LAUNCHER
+   ========================================= */
+#managerPage { display: none; }
+.manager-launch { text-align: center; }
+.manager-mark {
+  width: 84px; height: 84px; margin: 4px auto 22px;
+  border-radius: 22px; display: grid; place-items: center;
+  background: #f7f7f5; color: #111113;
+  font-size: 30px; font-weight: 900; letter-spacing: -.05em;
+}
+.manager-button {
+  display: block; margin-top: 22px; padding: 16px;
+  border-radius: 14px; background: #f7f7f5; color: #111113;
+  text-decoration: none; font-size: 16px; font-weight: 900;
+}
+.manager-note { margin-top: 16px; color: #8f8f94; font-size: 12px; line-height: 1.5; }
+
 </style>
 
 </head>
@@ -308,6 +333,24 @@ button:disabled {
 <div class="brand">
   BLEND THEORY
 </div>
+
+
+<!-- =========================================
+     PRIVATE MANAGER LAUNCHER
+     ========================================= -->
+<main class="card manager-launch" id="managerPage">
+  <div class="manager-mark">BT</div>
+  <div class="eyebrow">PRIVATE ADMIN</div>
+  <div class="hero">Referral Manager</div>
+  <p>Secure access to Blend Theory client referrals and rewards.</p>
+  <a class="manager-button"
+     href="https://script.google.com/macros/s/AKfycbwPL7it5GrSzcQurqINd7GE9yJ15zgZhIbU4M73JxXRdtuwjrfn8S-TIdoBc0ph85dm/exec">
+     OPEN SECURE MANAGER
+  </a>
+  <div class="manager-note">
+    Google sign-in is required. Authorized Blend Theory account only.
+  </div>
+</main>
 
 
 <!-- =========================================
@@ -569,6 +612,9 @@ const REFERRAL_CODE =
 const SHARE_MODE =
   params.get('share') === '1';
 
+const MANAGER_MODE =
+  params.get('manager') === '1';
+
 
 
 /* =========================================
@@ -590,6 +636,11 @@ const PERSONAL_REFERRAL_URL =
 /* =========================================
    PAGE ELEMENTS
    ========================================= */
+
+const managerPage =
+  document.getElementById(
+    'managerPage'
+  );
 
 const claimPage =
   document.getElementById(
@@ -677,21 +728,23 @@ shareRefLabel.textContent =
    SELECT PAGE MODE
    ========================================= */
 
-if (SHARE_MODE) {
+if (MANAGER_MODE) {
 
-  claimPage.style.display =
-    'none';
+  managerPage.style.display = 'block';
+  claimPage.style.display = 'none';
+  sharePage.style.display = 'none';
 
-  sharePage.style.display =
-    'block';
+} else if (SHARE_MODE) {
+
+  managerPage.style.display = 'none';
+  claimPage.style.display = 'none';
+  sharePage.style.display = 'block';
 
 } else {
 
-  claimPage.style.display =
-    'block';
-
-  sharePage.style.display =
-    'none';
+  managerPage.style.display = 'none';
+  claimPage.style.display = 'block';
+  sharePage.style.display = 'none';
 
 }
 
@@ -701,7 +754,7 @@ if (SHARE_MODE) {
    INVALID REFERRAL CODE
    ========================================= */
 
-if (!REFERRAL_CODE) {
+if (!REFERRAL_CODE && !MANAGER_MODE) {
 
   submitBtn.disabled =
     true;
