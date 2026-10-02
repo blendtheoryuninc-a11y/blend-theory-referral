@@ -1,0 +1,10 @@
+{
+  "name": "Blend Theory Referral Manager",
+  "short_name": "BlendTheory",
+  "start_url": "./?manager=1",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
+  "description": "Secure launcher for the Blend Theory Referral Manager"
+}
