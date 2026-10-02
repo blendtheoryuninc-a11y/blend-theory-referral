@@ -213,6 +213,44 @@ button:disabled {
 }
 
 
+.location-card {
+  margin: 20px 0 0;
+  padding: 16px;
+  border: 1px solid #38383d;
+  border-radius: 14px;
+  background: #101012;
+  text-align: center;
+}
+.location-label {
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: #8f8f94;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+.location-city {
+  font-size: 16px;
+  font-weight: 900;
+  margin-bottom: 5px;
+}
+.location-address {
+  color: #bdbdc2;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.directions-link {
+  display: block;
+  margin-top: 12px;
+  padding: 13px;
+  border-radius: 12px;
+  background: #242427;
+  border: 1px solid #3b3b40;
+  color: #f7f7f5;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 900;
+}
+
 /* =========================================
    SHARE PAGE
    ========================================= */
@@ -338,6 +376,17 @@ button:disabled {
   autocomplete="email"
   inputmode="email">
 
+
+
+<div class="location-card">
+  <div class="location-label">BLEND THEORY LOCATION</div>
+  <div class="location-city">Coral Springs, FL</div>
+  <div class="location-address">11471 W Sample Rd #25<br>Coral Springs, FL 33065</div>
+  <a class="directions-link"
+     href="https://www.google.com/maps/search/?api=1&amp;query=11471%20W%20Sample%20Rd%20%2325%2C%20Coral%20Springs%2C%20FL%2033065"
+     target="_blank"
+     rel="noopener">GET DIRECTIONS</a>
+</div>
 
 <button
   class="claim-button"
