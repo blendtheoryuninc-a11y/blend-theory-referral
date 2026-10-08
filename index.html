@@ -1129,43 +1129,42 @@ claimForm.addEventListener(
     try {
 
 
-      await fetch(
-        WEB_APP_URL,
-        {
-
-          method:
-            'POST',
-
-          mode:
-            'no-cors',
-
-          headers: {
-
-            'Content-Type':
-              'text/plain;charset=utf-8'
-
-          },
-
-          body:
-            JSON.stringify({
-
-              referralCode:
-                REFERRAL_CODE,
-
-              name:
-                name,
-
-              phone:
-                phone,
-
-              email:
-                email
-
-            })
-
+      const result = await new Promise(function(resolve, reject) {
+        const frame = document.createElement('iframe');
+        frame.style.display = 'none';
+        frame.title = 'Blend Theory referral verification';
+        const requestId = 'bt-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+        let finished = false;
+        const timer = setTimeout(function() {
+          finish(new Error('Verification timed out. Please try again.'));
+        }, 25000);
+        function finish(error, value) {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          window.removeEventListener('message', onMessage);
+          frame.remove();
+          if (error) reject(error); else resolve(value);
         }
-      );
-
+        function onMessage(event) {
+          if (event.source !== frame.contentWindow || !event.data) return;
+          if (event.data.type === 'BT_REFERRAL_READY') {
+            frame.contentWindow.postMessage({
+              type: 'BT_REFERRAL_SUBMIT', requestId: requestId,
+              payload: {referralCode: REFERRAL_CODE, name: name, phone: phone, email: email}
+            }, '*');
+          } else if (event.data.type === 'BT_REFERRAL_RESULT' &&
+                     event.data.requestId === requestId) {
+            finish(null, event.data.result);
+          }
+        }
+        window.addEventListener('message', onMessage);
+        frame.src = WEB_APP_URL + '?bridge=1';
+        document.body.appendChild(frame);
+      });
+      if (!result || !result.ok) {
+        throw new Error((result && result.message) || 'Referral was not accepted.');
+      }
 
 
       claimStatus.textContent =
@@ -1228,7 +1227,7 @@ claimForm.addEventListener(
 
 
       claimStatus.textContent =
-        'Unable to record referral. Please try again.';
+        (error && error.message) || 'Unable to record referral. Please try again.';
 
     }
 
